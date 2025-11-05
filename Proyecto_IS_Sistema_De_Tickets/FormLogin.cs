@@ -15,9 +15,18 @@ namespace Proyecto_IS_Sistema_De_Tickets
     public partial class FormLogin : Form, IIdiomaObserver
     {
         private readonly IdiomaService _idiomaSrv = new IdiomaService();
+        private string _placeholderUsuarioActual;
+        private string _placeholderContraseñaActual;
+        private bool _usuarioPlaceholderActivo = true;
+        private bool _contraseñaPlaceholderActiva = true;
         public FormLogin()
         {
             InitializeComponent();
+
+            _placeholderUsuarioActual = txt_Usuario.Text;
+            _placeholderContraseñaActual = txt_Contraseña.Text;
+            ActivarPlaceholderUsuario();
+            ActivarPlaceholderContraseña();
 
             // me suscribo al observer
             IdiomaManager.Instancia.Suscribir(this);
@@ -90,9 +99,33 @@ namespace Proyecto_IS_Sistema_De_Tickets
             // título arriba
             lblTituloLogin.Text = t["LOGIN_TITULO"];
 
-            // labels
-            txt_Usuario.Text = t["LOGIN_USUARIO"];
-            txt_Contraseña.Text = t["LOGIN_CONTRASENA"];
+            // placeholders dinámicos
+            var placeholderUsuarioPrevio = _placeholderUsuarioActual;
+            var placeholderContraseñaPrevio = _placeholderContraseñaActual;
+
+            bool usuarioTeniaPlaceholder = _usuarioPlaceholderActivo
+                || string.IsNullOrWhiteSpace(txt_Usuario.Text)
+                || string.Equals(txt_Usuario.Text, placeholderUsuarioPrevio, StringComparison.Ordinal);
+
+            bool contraseñaTeniaPlaceholder = _contraseñaPlaceholderActiva
+                || string.IsNullOrEmpty(txt_Contraseña.Text)
+                || string.Equals(txt_Contraseña.Text, placeholderContraseñaPrevio, StringComparison.Ordinal);
+
+            _placeholderUsuarioActual = t["LOGIN_USUARIO"];
+            _placeholderContraseñaActual = t["LOGIN_CONTRASENA"];
+
+            if (usuarioTeniaPlaceholder)
+                ActivarPlaceholderUsuario();
+            else
+                _usuarioPlaceholderActivo = false;
+
+            if (contraseñaTeniaPlaceholder)
+                ActivarPlaceholderContraseña();
+            else
+            {
+                _contraseñaPlaceholderActiva = false;
+                txt_Contraseña.UseSystemPasswordChar = true;
+            }
 
             // botón
             btnAcceder.Text = t["LOGIN_BTN_ACCEDER"];
@@ -104,35 +137,44 @@ namespace Proyecto_IS_Sistema_De_Tickets
 
         private void txt_Usuario_Enter(object sender, EventArgs e)
         {
-            if (txt_Usuario.Text == "USUARIO")
+            if (_usuarioPlaceholderActivo)
             {
-                txt_Usuario.Text = "";
+                _usuarioPlaceholderActivo = false;
+                txt_Usuario.Clear();
             }
         }
 
         private void txt_Usuario_Leave(object sender, EventArgs e)
         {
-            if (txt_Usuario.Text == "")
+            if (string.IsNullOrWhiteSpace(txt_Usuario.Text))
             {
-                txt_Usuario.Text = "USUARIO";
+                ActivarPlaceholderUsuario();
+            }
+            else
+            {
+                _usuarioPlaceholderActivo = false;
             }
         }
 
         private void txt_Contraseña_Enter(object sender, EventArgs e)
         {
-            if (txt_Contraseña.Text == "CONTRASEÑA")
+            if (_contraseñaPlaceholderActiva)
             {
-                txt_Contraseña.Text = "";
+                _contraseñaPlaceholderActiva = false;
+                txt_Contraseña.Clear();
                 txt_Contraseña.UseSystemPasswordChar = true;
             }
         }
 
         private void txt_Contraseña_Leave(object sender, EventArgs e)
         {
-            if (txt_Contraseña.Text == "")
+            if (string.IsNullOrEmpty(txt_Contraseña.Text))
             {
-                txt_Contraseña.Text = "CONTRASEÑA";
-                txt_Contraseña.UseSystemPasswordChar = false;
+                ActivarPlaceholderContraseña();
+            }
+            else
+            {
+                _contraseñaPlaceholderActiva = false;
             }
         }
 
@@ -149,8 +191,8 @@ namespace Proyecto_IS_Sistema_De_Tickets
         private void btn_Acceder_Click(object sender, EventArgs e)
         {
             var ok = AuthService.Instancia.Login(
-            txt_Usuario.Text.Trim(),
-            txt_Contraseña.Text,
+            ObtenerUsuarioIngresado(),
+            ObtenerPasswordIngresado(),
             ip: null,
             userAgent: Application.ProductName);
 
@@ -164,7 +206,7 @@ namespace Proyecto_IS_Sistema_De_Tickets
             else
             {
                 MsgError("Usuario o contraseña incorrecta o cuenta bloqueada");
-                txt_Contraseña.Clear();
+                ActivarPlaceholderContraseña();
                 txt_Usuario.Focus();
             }
         }
@@ -183,6 +225,29 @@ namespace Proyecto_IS_Sistema_De_Tickets
         {
             if (cmbIdiomas.SelectedValue is string cod && !string.IsNullOrWhiteSpace(cod))
                 _idiomaSrv.SeleccionarIdioma(cod); // esto dispara Notificar y setea el CodigoActual
+        }
+
+        private void ActivarPlaceholderUsuario()
+        {
+            _usuarioPlaceholderActivo = true;
+            txt_Usuario.Text = _placeholderUsuarioActual ?? string.Empty;
+        }
+
+        private void ActivarPlaceholderContraseña()
+        {
+            _contraseñaPlaceholderActiva = true;
+            txt_Contraseña.UseSystemPasswordChar = false;
+            txt_Contraseña.Text = _placeholderContraseñaActual ?? string.Empty;
+        }
+
+        private string ObtenerUsuarioIngresado()
+        {
+            return _usuarioPlaceholderActivo ? string.Empty : txt_Usuario.Text.Trim();
+        }
+
+        private string ObtenerPasswordIngresado()
+        {
+            return _contraseñaPlaceholderActiva ? string.Empty : txt_Contraseña.Text;
         }
 
 
